@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Savings Tracker</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(to bottom, #ffeb3b, #ffc107);
+    }
+  </style>
+</head>
+<body class="min-h-screen p-4">
+  <div class="max-w-3xl mx-auto bg-white rounded-2xl shadow-lg p-6">
+    <h1 class="text-3xl font-bold mb-4 text-center text-yellow-600">🚖 Our Taxi Savings Tracker</h1>
+
+    <div class="mb-6">
+      <label class="block mb-2 font-medium">Add New Entry:</label>
+      <input id="amountInput" type="number" placeholder="Amount (EUR)" class="border rounded w-full p-2 mb-2" />
+      <textarea id="noteInput" placeholder="Note (e.g., Ibuka kwandika izina ryawe Boss )" class="border rounded w-full p-2 mb-2"></textarea>
+      <button onclick="addEntry()" class="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600">Add</button>
+      <button onclick="clearData()" class="ml-2 bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">Clear All</button>
+      <button onclick="downloadBackup()" class="ml-2 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Download Backup</button>
+    </div>
+
+    <h2 class="text-xl font-semibold mb-2">Savings Log</h2>
+    <ul id="logList" class="mb-6 space-y-2 max-h-60 overflow-y-auto"></ul>
+
+    <div class="mb-4">
+      <h2 class="text-xl font-semibold">Statistics</h2>
+      <p class="text-lg">Total Saved: <span id="totalSaved">€0</span></p>
+      <p class="text-lg">Goal: <span id="goalAmount">€10,000</span></p>
+      <p class="text-lg">Amount Left: <span id="amountLeft">€10,000</span></p>
+      <div class="w-full bg-gray-200 rounded-full h-4 mt-2">
+        <div id="progressBar" class="bg-yellow-500 h-4 rounded-full" style="width: 0%"></div>
+      </div>
+    </div>
+
+    <canvas id="savingsChart" height="100"></canvas>
+
+    <p class="mt-6 text-center text-lg font-semibold text-yellow-800">We can make it! Keep driving forward! 🛣️</p>
+  </div>
+
+  <script>
+    const savingsGoal = 10000;
+    let savingsLog = JSON.parse(localStorage.getItem('savingsLog')) || [];
+
+    function addEntry() {
+      const amountInput = document.getElementById('amountInput');
+      const noteInput = document.getElementById('noteInput');
+
+      const amount = parseFloat(amountInput.value);
+      const note = noteInput.value.trim();
+
+      if (isNaN(amount) || note === '') {
+        alert('Please enter a valid amount and note.');
+        return;
+      }
+
+      const entry = { amount, note, date: new Date().toLocaleDateString() };
+      savingsLog.push(entry);
+      localStorage.setItem('savingsLog', JSON.stringify(savingsLog));
+
+      amountInput.value = '';
+      noteInput.value = '';
+
+      renderLog();
+      updateStats();
+    }
+
+    function clearData() {
+      if (confirm('Are you sure you want to delete all saved data?')) {
+        savingsLog = [];
+        localStorage.removeItem('savingsLog');
+        renderLog();
+        updateStats();
+      }
+    }
+
+    function downloadBackup() {
+      const blob = new Blob([JSON.stringify(savingsLog, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'savings_backup.json';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    function renderLog() {
+      const logList = document.getElementById('logList');
+      logList.innerHTML = '';
+
+      savingsLog.slice().reverse().forEach(entry => {
+        const li = document.createElement('li');
+        li.className = 'bg-yellow-50 border p-3 rounded';
+        li.textContent = `${entry.date} - €${entry.amount} - ${entry.note}`;
+        logList.appendChild(li);
+      });
+    }
+
+    function updateStats() {
+      const total = savingsLog.reduce((sum, entry) => sum + entry.amount, 0);
+      const left = Math.max(0, savingsGoal - total);
+      const progress = Math.min(100, (total / savingsGoal) * 100);
+
+      document.getElementById('totalSaved').textContent = `€${total.toFixed(2)}`;
+      document.getElementById('amountLeft').textContent = `€${left.toFixed(2)}`;
+      document.getElementById('progressBar').style.width = `${progress}%`;
+
+      updateChart();
+    }
+
+    let chart;
+    function updateChart() {
+      const ctx = document.getElementById('savingsChart').getContext('2d');
+      const labels = savingsLog.map(e => e.date);
+      const data = savingsLog.map(e => e.amount);
+
+      if (chart) chart.destroy();
+
+      chart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Savings Over Time',
+            data: data,
+            backgroundColor: '#facc15'
+          }]
+        },
+        options: {
+          scales: {
+            y: { beginAtZero: true }
+          }
+        }
+      });
+    }
+
+    // Initialize
+    renderLog();
+    updateStats();
+  </script>
+</body>
+</html>
